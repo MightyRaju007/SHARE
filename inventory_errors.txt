@@ -1,0 +1,1 @@
+vacant_rooms.txt line 1: comment or blank line
