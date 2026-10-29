@@ -1,11 +1,12 @@
-
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include <stdbool.h>
 #include <string.h>
 #include "commonHeaderFile.h"
+#define RANDOM STATUS_RANDOM
+#define PENDING STATUS_PENDING
+#define LOCKED STATUS_LOCKED
 
 
 
@@ -15,18 +16,6 @@
 #define hostelcodesize 3
 
 bool registeration_window_open = true;
-
-typedef enum{
-        RANDOM,PENDING,LOCKED
-}Status;
-
-typedef struct{
-
-        int floor;
-        char hostel[hostelcodesize];
-
-}Choice;
-
 
 typedef struct Student{
 
@@ -138,7 +127,7 @@ void load_data(){
         FILE *fptr = fopen("EligibleStudentfile.txt","r");
 
         if(fptr==NULL){
-            printf("eligible file does not exits.\n");
+            printf("Please provide a list of eligible students to continue.\n");
             return;
         }
 
@@ -180,19 +169,19 @@ bool HostelValidation(Choice choice[],int n){
 
             // Entered floor does not exits.
             if(!floorExists(hostel,floor)){
-                    printf("Hostel %s and floor %d does not exits.\n",choice[i].hostel,choice[i].floor);
+                    printf("Hostel %s and floor %d does not exist.\n",choice[i].hostel,choice[i].floor);
                     return false;
             }
             // Free rooms on one of the entered floor does not exits.
             if(freeRoomsOnFloor(hostel,floor)<=0){
-                    printf("Hostel %s and floor %d exits but has zero vacant room.\n",choice[i].hostel,choice[i].floor);
+                    printf("Hostel %s and floor %d exists but has zero vacant room.\n",choice[i].hostel,choice[i].floor);
                     return false; 
             }
 
             // Same (hostel,floor) combination entered more than once.
             for(int j=0;j<i;j++){
                 if(strcmp(choice[i].hostel,choice[j].hostel)==0 && choice[i].floor==choice[j].floor){
-                    printf("Hostel %s and floor %d listed twice.\n",choice[i].hostel,choice[i].floor);
+                    printf("The same hostel %s and floor %d is chosen twice.\n",choice[i].hostel,choice[i].floor);
                     return false;
                 }
             }
@@ -225,14 +214,14 @@ void inputhostelchoice(Choice choice[],int n){
                 int f;
                 // Print which hostel and floor have vacant rooms.
                 freeVacancy();
-                printf("1 for Aquamarine A\n2 for Aquamarine B\n3 for Garnet C\n");
+                printf("\n1 for Aquamarine A\n2 for Aquamarine B\n3 for Garnet C\n\n");
                 printf("Enter hostel %d code : ",i+1);
                 while(1){
                 int ch;
                 if(scanf("%d",&ch)!=1){
                     int c;
                     while((c = getchar())!='\n' && c!= EOF){
-                        printf("INVALID INPUT Ebter 1 2 or 3\n");
+                        printf("INVALID INPUT Enter 1 2 or 3\n");
                         continue;
                     }
                 }
@@ -250,7 +239,7 @@ void inputhostelchoice(Choice choice[],int n){
                 }
                 else{
                     printf("INVALID INPUT\n");
-                    printf("1 for Aquamarine A\n2 for Aquamarine B\n3 for Garnet C\n");
+                    printf("\n1 for Aquamarine A\n2 for Aquamarine B\n3 for Garnet C\n\n");
                     printf("Enter hostel %d code : ",i+1);
                 }
                 }
@@ -268,10 +257,10 @@ void inputhostelchoice(Choice choice[],int n){
             }
 
             // It will coutinue till you do not enter correct choice.
-            printf("Enter all preference again.\n");
+            printf("Please enter all the preferences again.\n");
 
         }
-        printf("Hostel choice successfully sumbitted.\n");
+        printf("Hostel preferences successfully submitted.\n");
 
 }
 
@@ -300,7 +289,7 @@ bool setroomate(unsigned long int x,unsigned long int y){
             Student *s1=hashsearching(x);
             s1->status=PENDING;
             s1->roomaterollno=y;
-            printf("Waiting for y to enter your roll number.\n");
+            printf("Waiting for y to select you as roomate.\n");
             return true;
         }
 
@@ -366,7 +355,7 @@ void releaseoldroomate(Student *s){
 // Register a student when a registeration window is open.
 void registerStudent(){
         if(!registeration_window_open){
-            printf("registration window is closed,apply next year.\n");
+            printf("Registration window is closed :(, apply next year.\n");
             return;
         }
 
@@ -380,7 +369,7 @@ void registerStudent(){
         // If entered rollno is not in hash,then student is not eligible.
         Student *s = hashsearching(roll);
         if(s == NULL){
-            printf("Entered roll not in eligible list.\n");
+            printf("Entered roll number is not eligible.\n");
             return;
         }
 
@@ -391,7 +380,7 @@ void registerStudent(){
 
         // 1 for RANDOM roomate, 2 for enter roomate roll no.
         int ch;
-        printf("Enter 1 for RANDOM ROOMATE, and 2(or any) for ROOMATE ROLL NUMBER.\n");
+        printf("Enter 1 for RANDOM ROOMATE, and 2(or any) for ROOMATE ROLL NUMBER: ");
         scanf("%d",&ch);
 
         
@@ -416,9 +405,9 @@ void registerStudent(){
         // Then save his registration.
         if(s->status == LOCKED){
                 printf("You are locked with your desire roomate.\n");
-                printf("Do you want to change hostel choice for you and your roomate.\n");
+                printf("Do you want to change the hostel preferences for you and your roomate.\n");
                 int change;
-                printf("1 for change and, any for remained same as your roomate.\n");
+                printf("Press 1 to change preferences or anyother key to continue without changing.\n");
                 scanf("%d",&change);
                 if(change!=1){
                     Student* s1 = hashsearching(s->roomaterollno);
@@ -427,7 +416,7 @@ void registerStudent(){
                         s->choice[i].floor = s1->choice[i].floor;
 
                     }
-                    printf("Registration successfully completed.\n");
+                    printf("Registration is completed successfully.\n");
                     s->registered=true; // Update registration status to TRUE.
                     return;
                 }
@@ -436,7 +425,7 @@ void registerStudent(){
         // If status is either PENDING or (LOCKED with updating roomate preference list)
         // Then enter preference list.
         Choice c[3];
-        printf("Entered hostel and floor in higher priority order.\n");
+        printf("\nEntered hostel and floor in higher priority order.\n");
         inputhostelchoice(c,3);
 
         for(int i=0;i<3;i++){
@@ -585,7 +574,7 @@ void viewmysubmission(){
             Student* s = hashsearching(roll);
             // If s is NULL,then entered rollno is not in eligible list.
             if(s == NULL){
-                printf("%lu not eligible roll no.\n",roll);
+                printf("%lu is not an eligible roll number\n",roll);
                 return;
             }
 
