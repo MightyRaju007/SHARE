@@ -2,7 +2,7 @@ The allocator has 4 stages -
 
 1) Stage 1 ( requires stage1.c and roomInventory.c ) - The student registration window in which students can select their roomates ( another student or random allocation ) alongside with their hostel choices. The output of this stage is the registered students list (along with roomate choice (LOCKED or RANDOM)) and a non registered students list.
 
-2) Stage 2 ( requires stage2_pairing.c stage2_contract.c stage2_demand.c stage2_main.c ) - It pairs the random roomates based on compatibility score calculated using the choices of each student. The output gives us the final pairing student pairing list ( with status as LOCKED for all ) alongside the demand report for each hostel floor.
+2) Stage 2 ( requires stage2_pairing.c stage2_contract.c stage2_demand.c stage2_main.c roomInventory ) - It pairs the random roomates based on compatibility score calculated using the choices of each student. The output gives us the final pairing student pairing list ( with status as LOCKED for all ) alongside the demand report for each hostel floor.
 
 3) Stage 3 ( requires stage3_pairedListMergerLottery.c roomInventory.c ) - The output file of stage 2 has 2 lines per student ( one of the student himself/herself and the other of the student as a roomate ). Stage 3 merges these lines into one line and implements the Fisher Yates shuffle algorithm to shuffle the list  of candidates.
 
