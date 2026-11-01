@@ -7,16 +7,24 @@
 #include <string.h>
 #include "commonHeaderFile.h"
 
+/* input from Stage 1 and output for Stage 3 are the same file, it is rewritten in place */
 #define REGISTRATION_FILE "registrations_paired.txt"
 #define UNREGISTERED_FILE "NotRegisteredStudent.txt"
 #define VACANT_ROOMS_FILE "vacant_rooms.txt"
 #define INVENTORY_ERRORS_FILE "inventory_errors.txt"
 #define PAIRED_FILE "registrations_paired.txt"
 
+/* the three big arrays live here rather than on the stack */
 Preference prefs[MAX_STUDENTS];
 Unit units[MAX_UNITS];
 long unregistered[MAX_STUDENTS];
 
+/* Reads the two files Stage 1 produced. The registration file gives one
+   student per line with roll, name, three choices, status and roommate, and
+   the unregistered file gives the rolls of students who never registered.
+   Every line is checked and the whole load stops with -1 on the first bad
+   one, since a half loaded list is worse than none. Returns the number of
+   registrations read, and the unregistered count through numUnregistered. */
 int loadStage1Files(Preference *out, int maxOut,
                     long *unregisteredRolls, int maxUnreg, int *numUnregistered)
 {
@@ -32,6 +40,7 @@ int loadStage1Files(Preference *out, int maxOut,
     }
 
     while (fgets(line, sizeof(line), fp) != NULL) {
+        /* one line has exactly seven fields separated by | */
         char *fields[7];
         char *p = line;
         char *end;
@@ -39,8 +48,10 @@ int loadStage1Files(Preference *out, int maxOut,
         int i, count = 0;
         Preference pref;
 
+        /* drop the newline, works for both Unix and Windows line endings */
         line[strcspn(line, "\r\n")] = '\0';
         fields[count++] = p;
+        /* split the line in place by turning each | into a string terminator */
         while ((p = strchr(p, '|')) != NULL && count < 7) {
             *p = '\0';
             fields[count++] = ++p;
@@ -56,6 +67,7 @@ int loadStage1Files(Preference *out, int maxOut,
             return -1;
         }
 
+        /* end must land on the terminator, otherwise the roll had junk in it */
         roll = strtol(fields[0], &end, 10);
         if (fields[0][0] == '\0' || *end != '\0') {
             fprintf(stderr, "invalid roll number in registration record\n");
@@ -86,6 +98,7 @@ int loadStage1Files(Preference *out, int maxOut,
             return -1;
         }
 
+        /* the roommate column is empty for random students */
         if (fields[6][0] != '\0') {
             roommateRoll = strtol(fields[6], &end, 10);
             if (*end != '\0') {
@@ -99,6 +112,7 @@ int loadStage1Files(Preference *out, int maxOut,
     }
     fclose(fp);
 
+    /* second file, just a roll number per line */
     fp = fopen(UNREGISTERED_FILE, "r");
     if (fp == NULL) {
         fprintf(stderr, "cannot open %s\n", UNREGISTERED_FILE);
@@ -123,6 +137,8 @@ int loadStage1Files(Preference *out, int maxOut,
     return nPrefs;
 }
 
+/* Opens the vacant rooms file and an errors file, then hands both to the
+   inventory module to load. Returns 1 if everything opened, 0 otherwise. */
 static int initializeRoomInventory(void)
 {
     FILE *rooms = fopen(VACANT_ROOMS_FILE, "r");
@@ -146,6 +162,9 @@ static int initializeRoomInventory(void)
     return 1;
 }
 
+/* Stage 2 from start to finish. Load the Stage 1 files, turn registrations
+   into units, add the students who never registered, print the units and
+   the demand report, then write the paired file for Stage 3 to pick up. */
 int main(void)
 {
     int nPrefs, nUnreg = 0, nUnits, i, pairs = 0, solos = 0;
@@ -155,6 +174,7 @@ int main(void)
         return 1;
     printf("registrations %d, never registered %d\n", nPrefs, nUnreg);
 
+    /* the seed argument is unused in this stage, the lottery is Stage 3 */
     nUnits = buildUnits(prefs, nPrefs, 1, units);
     for (i = 0; i < nUnits; i++) {
         if (units[i].solo)
@@ -163,6 +183,7 @@ int main(void)
             pairs++;
     }
     printf("units %d (%d pairs, %d solo)\n\n", nUnits, pairs, solos);
+    /* after the counts so the pairs and solos line refers only to registered students */
     nUnits = appendUnregistered(units, nUnits, unregistered, nUnreg);
 
     printUnits(units, nUnits);

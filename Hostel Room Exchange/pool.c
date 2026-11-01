@@ -4,11 +4,15 @@
 #include "commonHeadExchange.h"
 
 /* large scratch arrays for the run, kept off the stack */
+/* every roll number in the store, filled by prepareRun */
 long int allRolls[MAX_STUDENTS];
+/* the students still waiting to be matched during a run */
 long int activeRolls[MAX_STUDENTS];
 
 
-/* free the choices and NULL the slots */
+/* Frees the floors a student listed for the pool and sets the slots back to
+   NULL. Called whenever a student leaves the pool for any reason, and before
+   new choices are stored. */
 void clearPoolChoices(Student *s)
 {
     int k;
@@ -18,7 +22,9 @@ void clearPoolChoices(Student *s)
     }
 }
 
-/* copy the choices into fresh slots */
+/* Copies the choices a student typed into their record. Each choice gets
+   its own malloc'd slot; a NULL slot means "not given". Returns 0 if memory
+   runs out, in which case nothing is kept. */
 int storePoolChoices(Student *s, const PoolChoice *choices, int n)
 {
     int k;
@@ -36,7 +42,13 @@ int storePoolChoices(Student *s, const PoolChoice *choices, int n)
     return 1;
 }
 
-/* join the pool with 1 to 3 ranked floors */
+/* A student joins the random pool, giving 1 to 3 floors they would rather
+   live on, best first. All the rules are checked here and a message is
+   printed for the first one that fails. A student in a room alone is in the
+   pool at once. A student with a roommate is only "waiting": a consent
+   request is created for the roommate to answer at their next login, and the
+   student cannot start anything else until it is answered. Returns 1 if the
+   student joined or is waiting, 0 if refused. */
 int enterPool(long int roll, const PoolChoice *choices, int numChoices)
 {
     Student *s = getStudent(roll);
@@ -49,6 +61,7 @@ int enterPool(long int roll, const PoolChoice *choices, int numChoices)
         printf("roll %ld has no room in the allocation\n", roll);
         return 0;
     }
+    /* one open request at a time, see the commitment rule */
     if (s->commitmentRequest != 0) {
         printf("you have an open request (%d), withdraw it or wait for it to end\n",
                s->commitmentRequest);
@@ -115,8 +128,10 @@ int enterPool(long int roll, const PoolChoice *choices, int numChoices)
             clearPoolChoices(s);
             return 0;
         }
+        /* the roommate is the only person who has to agree */
         addApprover(r, mate, APPROVER_PENDING);
         roomAddOpen(s->room->roomId, r->id);
+        /* the student is now locked to this request until it ends */
         s->commitmentRequest = r->id;
         s->poolState = WAITING_CONSENT;
 
@@ -132,7 +147,9 @@ int enterPool(long int roll, const PoolChoice *choices, int numChoices)
     return 1;
 }
 
-/* out before the run */
+/* A student takes themselves out of the pool before the admin runs it. If
+   the roommate had not answered yet, the open consent request is cancelled
+   as well. */
 int leavePool(long int roll)
 {
     Student *s = getStudent(roll);
@@ -158,7 +175,9 @@ int leavePool(long int roll)
     return 1;
 }
 
-/* roommate pulls the student back out */
+/* A roommate withdraws the consent they gave (or were asked for). If the
+   consent request is still open this is the same as rejecting it. If the
+   student was already in the pool they are simply taken out and told. */
 int revokeConsent(long int roommateRoll)
 {
     long int roll = roommateOf(roommateRoll);
@@ -192,7 +211,9 @@ int revokeConsent(long int roommateRoll)
 }
 
 
-/* roommate said yes, student goes IN_POOL */
+/* Called by the request engine when the roommate accepts the consent
+   request at login. Nothing moves; the request is just marked completed,
+   both students are released, and the waiting student becomes IN_POOL. */
 void consentAccepted(Request *r)
 {
     Student *s;
@@ -204,6 +225,7 @@ void consentAccepted(Request *r)
     s = getStudent(r->initiator);
     nRooms = requestRooms(r, rooms, 2);
 
+    /* nothing to execute: consent only changes the student's pool state */
     r->status = REQ_COMPLETED;
     for (i = 0; i < r->approverCount; i++) {
         Student *mate = getStudent(r->approvers[i].roll);
@@ -225,14 +247,19 @@ void consentAccepted(Request *r)
     saveAll();
 }
 
-/* roommate said no, or initiator withdrew */
+/* Called by the request engine when the roommate rejects the consent
+   request, or the student withdraws it. The cancel does all the work and
+   ends in poolRequestClosed() below. */
 void consentDeclined(Request *r, const char *reason)
 {
     /* cancelRequest releases everyone and calls poolRequestClosed */
     cancelRequest(r, reason);
 }
 
-/* consent request ended without a yes */
+/* Called by the request engine after any request stops being OPEN without
+   being applied (cancelled, rejected, withdrawn or expired). Only consent
+   requests matter here: the student who was waiting goes back to NONE and is
+   told why. */
 void poolRequestClosed(Request *r)
 {
     Student *s;
@@ -253,6 +280,7 @@ void poolRequestClosed(Request *r)
 }
 
 
+/* An EdgeList is a growable array of edges. This starts one off empty. */
 void edgeListInit(EdgeList *list)
 {
     list->items = NULL;
@@ -260,13 +288,15 @@ void edgeListInit(EdgeList *list)
     list->cap = 0;
 }
 
+/* Releases an EdgeList's memory and leaves it empty. */
 void edgeListFree(EdgeList *list)
 {
     free(list->items);
     edgeListInit(list);
 }
 
-/* grow by doubling */
+/* Appends one edge, doubling the array when it is full. Returns 0 if memory
+   runs out. */
 int edgeListPush(EdgeList *list, Edge e)
 {
     if (list->n == list->cap) {
@@ -283,6 +313,7 @@ int edgeListPush(EdgeList *list, Edge e)
     return 1;
 }
 
+/* qsort comparator: orders roll numbers ascending. */
 int cmpRoll(const void *a, const void *b)
 {
     long int x = *(const long int *)a;
@@ -290,7 +321,11 @@ int cmpRoll(const void *a, const void *b)
     return (x > y) - (x < y);
 }
 
-/* collect, cancel strays, sort, shuffle, stamp seed positions */
+/* Sets up a pool run. Collects every student who is IN_POOL into active[],
+   cancels any request still open on their rooms (it would collide with the
+   trades), sorts them by roll number and then shuffles them with the seed.
+   Each student is stamped with their position in that order, which is used
+   later to break ties. Returns how many students are in the run. */
 int prepareRun(unsigned int seed, long int *active, int maxActive)
 {
     int nAll, n = 0, i, k, nIds;
@@ -330,7 +365,8 @@ int prepareRun(unsigned int seed, long int *active, int maxActive)
     return n;
 }
 
-/* -1 if the student did not list it */
+/* How highly a student ranked a floor: 0 for their first choice, 1 for
+   second, 2 for third, -1 if they did not list it at all. */
 int rankOfFloor(const Student *s, int floorIdx)
 {
     int k;
@@ -340,7 +376,11 @@ int rankOfFloor(const Student *s, int floorIdx)
     return -1;
 }
 
-/* one edge per (student, listed floor) up to allowedRank */
+/* Builds the floor graph for one pass of the run. For every pool student,
+   adds an arrow from the floor they live on to each floor they listed, but
+   only for choices ranked allowedRank or better. So with allowedRank 0 only
+   first choices are in the graph, with 2 everything is. Returns the number
+   of edges. */
 int buildEdges(const long int *active, int nActive, int allowedRank, EdgeList *out)
 {
     int i, k;
@@ -363,7 +403,8 @@ int buildEdges(const long int *active, int nActive, int allowedRank, EdgeList *o
     return out->n;
 }
 
-/* search state: best[f][g] is the lowest rank of edge f -> g, -1 if none */
+/* everything the depth-first search needs, passed around as one record.
+   best[f][g] is the lowest rank of any edge f -> g, or -1 if there is none. */
 typedef struct {
     int best[MAX_FLOORS][MAX_FLOORS];
     int colour[MAX_FLOORS]; /* 0 white, 1 grey (on the path), 2 black (done) */
@@ -372,7 +413,13 @@ typedef struct {
     int *cycle;
 } Search;
 
-/* depth-first step; returns the cycle length when it closes one */
+/* One step of the depth-first search. The floor is coloured grey and pushed
+   on the current path. Its outgoing arrows are tried in a fixed order: best
+   rank first, then lowest floor index. If an arrow points at a floor that is
+   already grey, the path from that floor to here is a ring and its length is
+   returned. Otherwise unvisited floors are searched in turn. When nothing
+   is found the floor is coloured black and popped. Returns the ring length,
+   or 0 if no ring was found through this floor. */
 int visitFloor(Search *st, int f)
 {
     int targets[MAX_FLOORS], nT = 0, g, i, j, len;
@@ -384,6 +431,7 @@ int visitFloor(Search *st, int f)
     for (g = 0; g < MAX_FLOORS; g++)
         if (st->best[f][g] >= 0)
             targets[nT++] = g;
+    /* insertion sort, there are at most 9 targets */
     for (i = 1; i < nT; i++) {
         int t = targets[i];
         j = i - 1;
@@ -397,8 +445,9 @@ int visitFloor(Search *st, int f)
 
     for (i = 0; i < nT; i++) {
         g = targets[i];
+        /* grey means g is already on the path, so we have come back round:
+           the ring is the part of the path from g to f */
         if (st->colour[g] == 1) {
-            /* g is on the path: the ring is g ... f */
             for (j = 0; j < st->top; j++)
                 if (st->path[j] == g)
                     break;
@@ -406,6 +455,7 @@ int visitFloor(Search *st, int f)
             memcpy(st->cycle, &st->path[j], len * sizeof(int));
             return len;
         }
+        /* white means not visited yet, go deeper */
         if (st->colour[g] == 0) {
             len = visitFloor(st, g);
             if (len > 0)
@@ -413,12 +463,18 @@ int visitFloor(Search *st, int f)
         }
     }
 
+    /* dead end: mark finished and step back */
     st->colour[f] = 2;
     st->top--;
     return 0;
 }
 
-/* colours: 0 white, 1 grey, 2 black */
+/* Finds one ring in the floor graph. First the edge list is collapsed into
+   a table that keeps the best rank for each (from floor, to floor) pair,
+   then a depth-first search is run from every floor in hostel-and-floor
+   order. The floors of the ring are written to cycle[] in order and the
+   length is returned, or 0 when the graph has no ring. The fixed ordering
+   is what makes the same data give the same ring every time. */
 int findCycle(const EdgeList *edges, int *cycle)
 {
     Search st;
@@ -450,13 +506,19 @@ int findCycle(const EdgeList *edges, int *cycle)
     return 0;
 }
 
-/* one student per floor of the ring */
+/* Turns a ring of floors into a ring of students. For each floor in the
+   ring, picks the pool student living there who listed the next floor,
+   preferring the one who ranked it higher and breaking ties with the
+   shuffled position. Then adds one move per student: into the room of the
+   student chosen on the next floor, with the last one wrapping round to the
+   first. Returns how many students were picked. */
 int chooseStudents(const int *cycle, int len, const long int *active, int nActive,
                    int allowedRank, Request *r, long int *chosen)
 {
     int i, k, picked = 0;
 
     for (i = 0; i < len; i++) {
+        /* this floor and the floor the chosen student will move to */
         int here = cycle[i];
         int next = cycle[(i + 1) % len];
         const Student *best = NULL;
@@ -491,7 +553,8 @@ int chooseStudents(const int *cycle, int len, const long int *active, int nActiv
     return picked;
 }
 
-/* remove and keep order */
+/* Removes one roll number from the active list, shifting the rest down so
+   the order is kept. */
 void dropFromActive(long int *active, int *nActive, long int roll)
 {
     int i, k;
@@ -505,6 +568,7 @@ void dropFromActive(long int *active, int *nActive, long int roll)
     }
 }
 
+/* Prints an applied ring, one line per student with their old and new room. */
 void printRing(const Request *r)
 {
     int i;
@@ -519,7 +583,13 @@ void printRing(const Request *r)
     }
 }
 
-/* the admin run */
+/* The admin's pool run. After prepareRun, three passes are made: first
+   choices only, then first and second, then all three. In each pass the
+   graph is rebuilt and rings are pulled out and applied one at a time until
+   none is left. Every ring becomes a POOL_TRADE request and goes through
+   execute() like any other request. Students in a ring that failed are told
+   and skipped; students never matched are told and stay where they are.
+   Returns the number of rings applied. */
 int runPool(unsigned int seed)
 {
     int n, rank, len, i, picked, trades = 0, moved = 0;
@@ -547,7 +617,9 @@ int runPool(unsigned int seed)
     edgeListInit(&edges);
 
     /* first choices before second choices */
+    /* outer loop widens the graph one rank at a time */
     for (rank = 0; rank < NUM_CHOICES; rank++) {
+        /* inner loop keeps pulling rings out until the graph has none */
         for (;;) {
             Request *r;
 
@@ -566,6 +638,7 @@ int runPool(unsigned int seed)
                 break;
             }
 
+            /* apply it; the executor is the only thing that changes rooms */
             if (execute(r)) {
                 trades++;
                 moved += picked;
