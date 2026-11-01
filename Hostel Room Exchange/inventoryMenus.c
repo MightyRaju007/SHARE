@@ -16,7 +16,7 @@ static struct StudentNode *studentTableFront[HASH_SIZE];
 static struct StudentNode *studentTableBack[HASH_SIZE];
 static struct Room *roomArray[440];
 
-int hashFunction(long int rollNo){
+int hashFunction(long int rollNo){ //to dind the bucket index (we use seperate chaining for collisions)
     int bucket = (int)(rollNo % HASH_SIZE);
     if (bucket < 0){
         bucket += HASH_SIZE;
@@ -24,7 +24,7 @@ int hashFunction(long int rollNo){
     return bucket;
 }
 
-struct Student *getStudent(long int rollNo){
+struct Student *getStudent(long int rollNo){ //getting a student from the hash table
     int bucket = hashFunction(rollNo);
     struct StudentNode *head = studentTableFront[bucket];
     if (head == NULL){
@@ -40,7 +40,7 @@ struct Student *getStudent(long int rollNo){
     return NULL;
 }
 
-int addStudent(struct Student *student){
+int addStudent(struct Student *student){ //adding a student to the hash table
     if (student == NULL){
         return 0;
     }
@@ -66,7 +66,7 @@ int addStudent(struct Student *student){
     return 1;
 }
 
-int deleteStudent(long int rollNo){
+int deleteStudent(long int rollNo){ //deleting a student from the hash table
     struct Student *temp = getStudent(rollNo);
     if (temp == NULL){
         return 0;
@@ -96,7 +96,7 @@ int deleteStudent(long int rollNo){
     return 0;
 }
 
-struct Student *createStudent(long int rollNo, char name[]){
+struct Student *createStudent(long int rollNo, char name[]){ //creating a new student structure
     struct Student *new = malloc(sizeof(struct Student));
     if (new == NULL){
         return NULL;
@@ -115,7 +115,7 @@ struct Student *createStudent(long int rollNo, char name[]){
     return new;
 }
 
-static void freeStudentData(struct Student *student){
+static void freeStudentData(struct Student *student){ //freeing memory
     if (student == NULL){
         return;
     }
@@ -126,7 +126,7 @@ static void freeStudentData(struct Student *student){
     free(student);
 }
 
-void freeStudentTable(){
+void freeStudentTable(){ //freeing memory 
     for (int i = 0; i < HASH_SIZE; i++){
         struct StudentNode *temp = studentTableFront[i];
         while (temp != NULL){
@@ -152,7 +152,7 @@ const struct {
     { "GC", 1, 320, 8 }
 };
 
-int hostelIndex(const char *hostel)
+int hostelIndex(const char *hostel) //char code to int code 
 {
     int h;
     if (hostel == NULL)
@@ -163,7 +163,7 @@ int hostelIndex(const char *hostel)
     return -1;
 }
 
-const char *hostelCode(int index)
+const char *hostelCode(int index) //int code to char code
 {
     return (index >= 0 && index < NUM_HOSTELS) ? HOSTELS[index].code : "?";
 }
@@ -183,7 +183,7 @@ int floorExists(const char *code, int floor)
     return floor >= 0 && floor <= 3;
 }
 
-int roomId(char hostel[], int roomNo){
+int roomId(char hostel[], int roomNo){ //calculating the unique room id per room using the pre assigned offset per hostel
     int hostelNumber = hostelIndex(hostel);
     if (hostelNumber == 0){
         if ((roomNo < 1) || (roomNo > 160)){
@@ -206,7 +206,7 @@ int roomId(char hostel[], int roomNo){
     return -1;
 }
 
-int hostelNumber(int roomId){
+int hostelNumber(int roomId){ //calculating hostel int code using room id
     if ((roomId >= 1) && (roomId <= 160)){
         return 0;
     }
@@ -219,7 +219,7 @@ int hostelNumber(int roomId){
     return -1;
 }
 
-int roomNo(int roomId){
+int roomNo(int roomId){ //room number calculation from id
     if ((roomId >= 1) && (roomId <= 160)){
         return roomId;
     }
@@ -232,10 +232,7 @@ int roomNo(int roomId){
     return -1;
 }
 
-int roomNumber(int roomId);
-
-int roomFloor(int roomId)
-{
+int roomFloor(int roomId){ //floor calculation using room id
     int h = hostelNumber(roomId);
     int n = roomNumber(roomId);
     if (h == 2){
@@ -245,13 +242,13 @@ int roomFloor(int roomId)
 }
 
 
-int roomOffset(const char *hostel)
+int roomOffset(const char *hostel) //predefined offset
 {
     int h = hostelIndex(hostel);
     return h < 0 ? -1 : HOSTELS[h].offset;
 }
 
-int makeRoomId(const char *hostel, int roomNo)
+int makeRoomId(const char *hostel, int roomNo) //duplicate room id generating function for syncing 
 {
     int h = hostelIndex(hostel);
     if (h < 0)
@@ -336,7 +333,7 @@ void floorFromIndex(int idx, PoolChoice *c)
     }
 }
 
-void formatRoom(int roomId, char *buf)
+void formatRoom(int roomId, char *buf) //converting the room into readable format
 {
     if (!roomExists(roomId))
         sprintf(buf, "room?%d", roomId);
@@ -344,7 +341,7 @@ void formatRoom(int roomId, char *buf)
         sprintf(buf, "%s-%d", roomHostel(roomId), roomNumber(roomId));
 }
 
-int parseRoom(const char *text)
+int parseRoom(const char *text) //converts the readable format back into the room id
 {
     char hostel[HOSTEL_LEN];
     const char *p = text;
@@ -367,21 +364,19 @@ int parseRoom(const char *text)
         p++;
     if (!isdigit((unsigned char)*p))
         return 0;
-    return makeRoomId(hostel, atoi(p));
+    return makeRoomId(hostel, atoi(p)); //atoi is ascii converter function
 }
 
-int sameFloor(const PoolChoice *a, const PoolChoice *b)
+int sameFloor(const PoolChoice *a, const PoolChoice *b) //if the two rooms are on the same floor
 {
     return a->floor == b->floor && strcmp(a->hostel, b->hostel) == 0;
 }
 
 int parseChoice(const char *text, PoolChoice *c)
 {
-    if (!isupper((unsigned char)text[0]) ||
-        !isupper((unsigned char)text[1]) ||
-        !isdigit((unsigned char)text[2]))
+    if (!isupper((unsigned char)text[0]) || !isupper((unsigned char)text[1]) || !isdigit((unsigned char)text[2])){ //it should be in the correct format
         return 0;
-
+    }
     c->hostel[0] = text[0];
     c->hostel[1] = text[1];
     c->hostel[2] = '\0';
@@ -475,11 +470,11 @@ int poolChoiceCount(const Student *s)
     return k;
 }
 
-static int addRoomOnce(int *out, int n, int maxOut, int room)
-{
+static int addRoomOnce(int *out, int n, int maxOut, int room) {//adds a room to the array if it hasnt been already added
     int i;
-    if (room == 0)
+    if (room == 0){
         return n;
+    }
     for (i = 0; i < n; i++)
         if (out[i] == room)
             return n;
@@ -488,15 +483,12 @@ static int addRoomOnce(int *out, int n, int maxOut, int room)
     return n;
 }
 
-int requestRooms(const Request *r, int *out, int maxOut)
-{
+int requestRooms(const Request *r, int *out, int maxOut){ //checks if rooms are available to add
     int i, n = 0;
-
     for (i = 0; i < r->moveCount; i++) {
         n = addRoomOnce(out, n, maxOut, r->moves[i].fromRoom);
         n = addRoomOnce(out, n, maxOut, r->moves[i].toRoom);
     }
-
     if (r->type == REQ_POOL_CONSENT && r->initiator != 0) {
         const Student *s = getStudent(r->initiator);
         if (s != NULL && s->room != NULL)
@@ -530,7 +522,7 @@ int addRoom(struct Room *room){
     return 0;
 }
 
-long int roommateOf(long int rollNo){
+long int roommateOf(long int rollNo){ 
     struct Student *temp = getStudent(rollNo);
     if (temp == NULL){
         return 0;
@@ -571,7 +563,6 @@ void cancelRequest(Request *req, const char *reason){
         if (student != NULL && student->commitmentRequest == req->id)
             student->commitmentRequest = 0;
     }
-
     nRooms = requestRooms(req, rooms, 2 * MAX_MOVES);
     for (i = 0; i < nRooms; i++)
         roomRemoveOpen(rooms[i], req->id);
@@ -579,7 +570,7 @@ void cancelRequest(Request *req, const char *reason){
     poolRequestClosed(req);
 }
 
-void saveAll(void){
+void saveAll(void){ //saves all the current data into the corresponding text files
     FILE *studentFile = NULL;
     FILE *studentCheck = fopen("students.txt", "r");
     FILE *studentStateFile = fopen("student_state.txt", "w");
@@ -592,10 +583,8 @@ void saveAll(void){
     else{
         fclose(studentCheck);
     }
-    if (((studentCheck == NULL) && (studentFile == NULL)) ||
-        (studentStateFile == NULL) || (roomFile == NULL) ||
-        (noticeFile == NULL) || (requestFile == NULL)){
-        if (studentFile != NULL) fclose(studentFile);
+    if (((studentCheck == NULL) && (studentFile == NULL)) || (studentStateFile == NULL) || (roomFile == NULL) || (noticeFile == NULL) || (requestFile == NULL)){
+        if (studentFile != NULL) fclose(studentFile); //if only some or none of the files were opened successfuly 
         if (studentStateFile != NULL) fclose(studentStateFile);
         if (roomFile != NULL) fclose(roomFile);
         if (noticeFile != NULL) fclose(noticeFile);
@@ -606,28 +595,16 @@ void saveAll(void){
     for (int i = 0; i < HASH_SIZE; i++){
         struct StudentNode *temp = studentTableFront[i];
         while (temp != NULL){
-            struct Student *student = temp -> student;
-            /*
-             * Create students.txt only if it does not exist.
-             * Existing master roster is never overwritten.
-             */
+            struct Student *student = temp -> student; //we createstudents.txt only if it doesnt already exist 
             if (studentFile != NULL){
                 int room = -1;
                 if (student -> room != NULL){
                     room = student -> room -> roomId;
                 }
-                fprintf(studentFile, "%ld,%s,%d,%d,%d,%d",
-                    student -> rollNo,
-                    student -> name,
-                    room,
-                    student -> commitmentRequest,
-                    student -> poolState,
-                    student -> poolSeedPos);
+                fprintf(studentFile, "%ld,%s,%d,%d,%d,%d", student -> rollNo, student -> name, room, student -> commitmentRequest, student -> poolState,  student -> poolSeedPos);
                 for (int j = 0; j < NUM_CHOICES; j++){
                     if (student -> poolchoices[j] != NULL){
-                        fprintf(studentFile, ",%s,%d",
-                            student -> poolchoices[j] -> hostel,
-                            student -> poolchoices[j] -> floor);
+                        fprintf(studentFile, ",%s,%d", student -> poolchoices[j] -> hostel, student -> poolchoices[j] -> floor);
                     }
                     else{
                         fprintf(studentFile, ",-1,-1");
@@ -635,22 +612,11 @@ void saveAll(void){
                 }
                 fprintf(studentFile, "\n");
             }
-            /*
-             * Save changing student information separately.
-             * Format:
-             * rollNo,commitmentRequest,poolState,poolSeedPos,
-             * hostel1,floor1,hostel2,floor2,hostel3,floor3
-             */
-            fprintf(studentStateFile, "%ld,%d,%d,%d",
-                student -> rollNo,
-                student -> commitmentRequest,
-                student -> poolState,
-                student -> poolSeedPos);
+            /*We change the updated student data in a new file in the format */
+            fprintf(studentStateFile, "%ld,%d,%d,%d", student -> rollNo, student -> commitmentRequest, student -> poolState, student -> poolSeedPos);
             for (int j = 0; j < NUM_CHOICES; j++){
                 if (student -> poolchoices[j] != NULL){
-                    fprintf(studentStateFile, ",%s,%d",
-                        student -> poolchoices[j] -> hostel,
-                        student -> poolchoices[j] -> floor);
+                    fprintf(studentStateFile, ",%s,%d", student -> poolchoices[j] -> hostel, student -> poolchoices[j] -> floor);
                 }
                 else{
                     fprintf(studentStateFile, ",-1,-1");
@@ -660,7 +626,7 @@ void saveAll(void){
             temp = temp -> next;
         }
     }
-    for (int i = 0; i < 440; i++){
+    for (int i = 0; i < 440; i++){ //room.txt
         struct Room *room = roomArray[i];
         if (room != NULL){
             fprintf(roomFile, "%d,%s,%d,%d,%ld,%ld,%d",
@@ -678,7 +644,7 @@ void saveAll(void){
             fprintf(roomFile, "\n");
         }
     }
-    for (int i = 0; i < HASH_SIZE; i++){
+    for (int i = 0; i < HASH_SIZE; i++){ //notices.txt
         struct StudentNode *temp = studentTableFront[i];
         while (temp != NULL){
             struct Student *student = temp -> student;
@@ -698,26 +664,12 @@ void saveAll(void){
         Request *req = requests[i];
         if (req == NULL)
             continue;
-        fprintf(requestFile, "%d,%d,%ld,%ld,%ld,%d,%d,%d,%s",
-            req -> id,
-            req -> type,
-            req -> initiator,
-            req -> createdAt,
-            req -> expiresAt,
-            req -> status,
-            req -> moveCount,
-            req -> approverCount,
-            req -> reason);
+        fprintf(requestFile, "%d,%d,%ld,%ld,%ld,%d,%d,%d,%s", req -> id, req -> type, req -> initiator, req -> createdAt, req -> expiresAt, req -> status, req -> moveCount, req -> approverCount, req -> reason);
         for (int j = 0; j < req -> moveCount; j++){
-            fprintf(requestFile, ",%ld:%d:%d",
-                req -> moves[j].roll,
-                req -> moves[j].fromRoom,
-                req -> moves[j].toRoom);
+            fprintf(requestFile, ",%ld:%d:%d", req -> moves[j].roll, req -> moves[j].fromRoom, req -> moves[j].toRoom);
         }
         for (int j = 0; j < req -> approverCount; j++){
-            fprintf(requestFile, ",%ld:%d",
-                req -> approvers[j].roll,
-                req -> approvers[j].state);
+            fprintf(requestFile, ",%ld:%d", req -> approvers[j].roll, req -> approvers[j].state);
         }
         fprintf(requestFile, "\n");
     }
@@ -729,7 +681,7 @@ void saveAll(void){
     printf("Data saved successfully!\n");
 }
 
-void loadAll(void){
+void loadAll(void){ //when the program is startup again we reload all the info stored in the text files into the respective structures
     FILE *studentFile = fopen("students.txt", "r");
     int rosterMissing = (studentFile == NULL);
     int loadedStudents = 0;
@@ -740,7 +692,7 @@ void loadAll(void){
     char line[4096];
     char *token;
     storeReset();
-    if (studentFile != NULL){
+    if (studentFile != NULL){ //student structures
         while (fgets(line, sizeof(line), studentFile) != NULL){
             Student *student;
             long int rollNo;
@@ -860,7 +812,7 @@ void loadAll(void){
     }
     fclose(studentStateFile);
     }
-    if (roomFile != NULL){
+    if (roomFile != NULL){ //room structures
         while (fgets(line, sizeof(line), roomFile) != NULL){
             Room *room;
             int id, floor, number, openCount;
@@ -924,7 +876,7 @@ void loadAll(void){
         }
         fclose(roomFile);
     }
-    if (noticeFile != NULL){
+    if (noticeFile != NULL){ //notice structures
         while (fgets(line, sizeof(line), noticeFile) != NULL){
             long int rollNo;
             int requestId, seen;
@@ -953,7 +905,7 @@ void loadAll(void){
         }
         fclose(noticeFile);
     }
-    if (requestFile != NULL){
+    if (requestFile != NULL){ // requests
         while (fgets(line, sizeof(line), requestFile) != NULL){
             Request *req;
             int id, type, status, moveCount, approverCount;
@@ -1075,10 +1027,7 @@ void loadAll(void){
         }
         fclose(roomFile);
     }
-
-    /* If the master roster is missing, build the initial student table
-       from allocated_rooms.txt. Existing rosters are never replaced. */
-    if (rosterMissing || loadedStudents == 0){
+    if (rosterMissing || loadedStudents == 0){ //if students.txt doesnt exist, we import data from the final output of allocator
         int imported = importAllocatedRooms();
         if (imported > 0){
             printf("No students were loaded from students.txt. Initialized %d room allocations from allocated_rooms.txt.\n", imported);
@@ -1089,7 +1038,7 @@ void loadAll(void){
     }
 }
 
-int importAllocatedRooms(void){
+int importAllocatedRooms(void){ //imports data from the final output of the allocator
     FILE *allocationFile = fopen("allocated_rooms.txt", "r");
     char line[256];
     long int roll1, roll2;
@@ -1115,10 +1064,7 @@ int importAllocatedRooms(void){
         if (sscanf(line, "%ld|%ld|%2[^|]|%d|%d", &roll1, &roll2, hostel, &floor, &number) != 5){
             continue;
         }
-
-        /* On first initialization, allocated_rooms.txt is the only
-           available roster source, so create placeholder student names. */
-        Student *student1 = getStudent(roll1);
+        Student *student1 = getStudent(roll1); //since allocated.txt doesnt have names, we generate names 
         Student *student2 = getStudent(roll2);
         char generatedName[100];
         if (student1 == NULL){
@@ -1167,7 +1113,7 @@ int importAllocatedRooms(void){
     return imported;
 }
 
-void appendLog(const char *line){
+void appendLog(const char *line){ 
     FILE *logFile = fopen("audit.log", "a");
     if (logFile == NULL){
         return;
@@ -1176,7 +1122,7 @@ void appendLog(const char *line){
     fclose(logFile);
 }
 
-void addNotice(long int rollNo, int requestId, const char *text){
+void addNotice(long int rollNo, int requestId, const char *text){ //adding a new notice node
     struct Student *student = getStudent(rollNo);
     if (student == NULL){
         return;
@@ -1200,7 +1146,7 @@ void addNotice(long int rollNo, int requestId, const char *text){
     student -> noticeCount += 1;
 }
 
-Request *newRequest(RequestType type, long int initiator){
+Request *newRequest(RequestType type, long int initiator){ //new request node
     if (requestCount >= MAX_REQUESTS){
         return NULL;
     }
@@ -1219,14 +1165,14 @@ Request *newRequest(RequestType type, long int initiator){
     return new;
 }
 
-Request *getRequest(int id){
+Request *getRequest(int id){ //fetching an existing request
     if (id < 1 || id > requestCount){
         return NULL;
     }
     return requests[id - 1];
 }
 
-int addMove(Request *req, long int rollNo, int fromRoom, int toRoom){
+int addMove(Request *req, long int rollNo, int fromRoom, int toRoom){ 
     Move *m;
     if (req == NULL || req -> moveCount >= MAX_MOVES){
         return 0;
@@ -1302,7 +1248,7 @@ int listStudents(long int *out, int maxOut){
     return n;
 }
 
-void storeReset(void){
+void storeReset(void){ //freeing memory
     for (int i = 0; i < HASH_SIZE; i++){
         StudentNode *n = studentTableFront[i];
         while (n != NULL){
@@ -1454,14 +1400,10 @@ void studentMenu(long int roll){
                     char from[16], to[16];
                     formatRoom(req->moves[i].fromRoom, from);
                     formatRoom(req->moves[i].toRoom, to);
-                    printf("  %ld: %s -> %s\n",
-                           req->moves[i].roll, from, to);
+                    printf("  %ld: %s -> %s\n",req->moves[i].roll, from, to);
                 }
                 for (int i = 0; i < req->approverCount; i++){
-                    printf("  Approver %ld: %s\n",
-                           req->approvers[i].roll,
-                           req->approvers[i].state == APPROVER_ACCEPTED ? "Accepted" :
-                           req->approvers[i].state == APPROVER_REJECTED ? "Rejected" : "Pending");
+                    printf("  Approver %ld: %s\n", req->approvers[i].roll, req->approvers[i].state == APPROVER_ACCEPTED ? "Accepted" : req->approvers[i].state == APPROVER_REJECTED ? "Rejected" : "Pending");
                 }
                 break;
             }
