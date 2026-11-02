@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include "commonHeaderFile.h"
 
+/* Counts how many units put this floor as their first choice. Units with no
+   preferences (unregistered students) are not counted. */
 static int firstChoiceDemand(const Unit *units, int nUnits, const Choice *floorChoice)
 {
     int i, d = 0;
@@ -11,6 +13,10 @@ static int firstChoiceDemand(const Unit *units, int nUnits, const Choice *floorC
     return d;
 }
 
+/* Prints a table for the admin after the window closes. For every floor it
+   shows how many rooms are free and how many units want it first, and flags
+   the floors where demand is more than the rooms. Nothing is decided here,
+   it is only information. Ends with the overall unit and room totals. */
 void demandReport(const Unit *units, int nUnits)
 {
     const char *hostelCodes[NUM_HOSTELS] = {"AA", "AB", "GC"};
@@ -25,6 +31,7 @@ void demandReport(const Unit *units, int nUnits)
             int demand;
             Choice floorChoice;
 
+            /* GC has only one floor, so skip the floor numbers it does not have */
             if (!floorExists(hostel, floor))
                 continue;
 
@@ -35,12 +42,14 @@ void demandReport(const Unit *units, int nUnits)
 
             totalRooms += rooms;
             printf("%-8s %-6d %-10d %d", floorChoice.hostel, floor, rooms, demand);
+            /* more first choices than rooms means some of them will not get it */
             if (demand > rooms)
                 printf("  (over by %d)", demand - rooms);
             printf("\n");
         }
     }
 
+    /* reusing the floor variable as a plain counter here */
     for (floor = 0; floor < nUnits; floor++) {
         if (units[floor].numChoices == 0)
             noPrefs++;

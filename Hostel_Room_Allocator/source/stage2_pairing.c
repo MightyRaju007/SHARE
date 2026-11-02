@@ -3,16 +3,21 @@
 #include <string.h>
 #include "commonHeaderFile.h"
 
+/* the highest compatibility score possible, used to size the counting sort */
 #define MAX_SCORE 16
+/* rank given to a floor a student did not list, one worse than third */
 #define NO_RANK 3
 
+/* one possible pairing from the random pool, i and j are indexes into the pool */
 typedef struct {
     int i;
     int j;
     int score;
 } Candidate;
 
-/* rank (0,1,2) of a floor in a student's list, NO_RANK if absent */
+/* Where a floor sits in a student's list. 0 means first choice, 1 second,
+   2 third. NO_RANK (3) means the student did not list that floor at all,
+   which is deliberately one worse than a third choice. */
 int rankOf(const Preference *p, const Choice *c)
 {
     int r;
@@ -23,6 +28,7 @@ int rankOf(const Preference *p, const Choice *c)
     return NO_RANK;
 }
 
+/* qsort comparator for Preference records, lowest roll number first. */
 int cmpByRoll(const void *a, const void *b)
 {
     long x = ((const Preference *)a)->rollNo;
@@ -30,6 +36,7 @@ int cmpByRoll(const void *a, const void *b)
     return (x > y) - (x < y);
 }
 
+/* qsort comparator for plain roll numbers, lowest first. */
 int cmpLong(const void *a, const void *b)
 {
     long x = *(const long *)a;
@@ -37,6 +44,9 @@ int cmpLong(const void *a, const void *b)
     return (x > y) - (x < y);
 }
 
+/* Looks up a student's record by roll number in the prefs array. Returns
+   NULL if nobody has that roll. A simple scan is fine here because it is
+   only used while checking locked pairs. */
 const Preference *findInPrefs(const Preference *prefs, int n, long roll)
 {
     int k;
@@ -47,6 +57,8 @@ const Preference *findInPrefs(const Preference *prefs, int n, long roll)
     return NULL;
 }
 
+/* Fills in a Unit for two students who will share a room. The choices
+   passed in become the unit's choices and solo is set to 0. */
 void makePairUnit(Unit *u, long rollA, long rollB, const Choice choices[NUM_CHOICES])
 {
     memset(u, 0, sizeof(*u));
@@ -57,6 +69,8 @@ void makePairUnit(Unit *u, long rollA, long rollB, const Choice choices[NUM_CHOI
     u->solo = 0;
 }
 
+/* Fills in a Unit for one student with no partner. rollB stays 0 and solo
+   is set to 1 so the allocator knows only one bed is needed. */
 void makeSoloUnit(Unit *u, long rollA, const Choice choices[NUM_CHOICES])
 {
     memset(u, 0, sizeof(*u));
@@ -67,6 +81,11 @@ void makeSoloUnit(Unit *u, long rollA, const Choice choices[NUM_CHOICES])
     u->solo = 1;
 }
 
+/* How well two random students suit each other, as a number from 0 to 16.
+   Every choice of a is compared with every choice of b. If they share a
+   floor the score is 10 plus a bonus, if they only share a hostel it is
+   just the bonus, otherwise 0. The bonus is bigger when both of them put
+   that floor near the top of their lists. The best match found wins. */
 int compatibilityScore(const Preference *a, const Preference *b)
 {
     int i, j;
@@ -75,6 +94,7 @@ int compatibilityScore(const Preference *a, const Preference *b)
 
     for (i = 0; i < NUM_CHOICES; i++) {
         for (j = 0; j < NUM_CHOICES; j++) {
+            /* bonus is 6 when both ranked it first, down to 2 for both third */
             int bonus = (3 - i) + (3 - j);
 
             if (sameFloor(&a->choices[i], &b->choices[j])) {
@@ -87,6 +107,7 @@ int compatibilityScore(const Preference *a, const Preference *b)
         }
     }
 
+    /* a shared floor always beats a shared hostel */
     if (bestFloorBonus >= 0)
         return 10 + bestFloorBonus;
     if (bestHostelBonus >= 0)
@@ -94,6 +115,10 @@ int compatibilityScore(const Preference *a, const Preference *b)
     return 0;
 }
 
+/* Builds the three floors a new random pair will ask for. Every floor that
+   either student listed is a candidate. Each candidate is scored as rankA
+   plus rankB (a floor missing from one list counts as 3), lower is better,
+   and the three lowest go out in order. */
 void sharedChoices(const Preference *a, const Preference *b, Choice out[NUM_CHOICES])
 {
     /* union of both lists: at least 3 floors, at most 6. Floors in neither
@@ -145,6 +170,11 @@ void sharedChoices(const Preference *a, const Preference *b, Choice out[NUM_CHOI
         out[k] = cand[k];
 }
 
+/* Pairs up everyone in the random pool and writes the resulting units to
+   out. Every possible pair is scored, the pairs are sorted by score with the
+   best first, and then taken greedily, a pair is kept if both students are
+   still free. Anyone left over at the end becomes a solo unit. Returns the
+   number of units written. */
 int pairRandoms(Preference *pool, int n, Unit *out)
 {
     long numCand, p;
@@ -167,6 +197,7 @@ int pairRandoms(Preference *pool, int n, Unit *out)
         return 1;
     }
 
+    /* every pair i<j, that is n choose 2 candidates */
     numCand = (long)n * (n - 1) / 2;
     cand = malloc(numCand * sizeof(Candidate));
     order = malloc(numCand * sizeof(int));
@@ -182,6 +213,7 @@ int pairRandoms(Preference *pool, int n, Unit *out)
         for (j = i + 1; j < n; j++) {
             cand[p].i = i;
             cand[p].j = j;
+            /* score every possible pair once */
             cand[p].score = compatibilityScore(&pool[i], &pool[j]);
             p++;
         }
@@ -193,6 +225,7 @@ int pairRandoms(Preference *pool, int n, Unit *out)
     for (p = 0; p < numCand; p++)
         count[cand[p].score]++;
 
+    /* start[s] is where score s begins in the sorted order, highest score first */
     start[MAX_SCORE] = 0;
     for (s = MAX_SCORE - 1; s >= 0; s--)
         start[s] = start[s + 1] + count[s + 1];
@@ -203,6 +236,7 @@ int pairRandoms(Preference *pool, int n, Unit *out)
     /* greedy: best candidate first, take it if both students are still free */
     for (p = 0; p < numCand; p++) {
         Candidate *c = &cand[order[p]];
+        /* skip if either student was already taken by a better pair */
         if (paired[c->i] || paired[c->j])
             continue;
         paired[c->i] = paired[c->j] = 1;
@@ -216,6 +250,7 @@ int pairRandoms(Preference *pool, int n, Unit *out)
     }
 
     for (i = 0; i < n; i++) {
+        /* whoever is still free after the greedy pass has no partner */
         if (!paired[i]) {
             makeSoloUnit(&out[made], pool[i].rollNo, pool[i].choices);
             made++;
@@ -228,7 +263,10 @@ int pairRandoms(Preference *pool, int n, Unit *out)
     return made;
 }
 
-/* both records must exist, be LOCKED and name each other */
+/* Checks that a LOCKED student really has a valid partner. The partner's
+   record must exist, also be LOCKED, and name this student back. If their
+   choice lists differ a warning is printed and the first student's list is
+   used. Returns 1 when the pair is sound, 0 when it is not. */
 int lockedPairOk(const Preference *p, const Preference *q)
 {
     int k;
@@ -258,6 +296,11 @@ int lockedPairOk(const Preference *p, const Preference *q)
     return 1;
 }
 
+/* Turns the closed registration list into units, the things the lottery and
+   allocator work with. Locked pairs become one unit each. Everyone else,
+   including students whose locked partner turned out to be invalid and
+   students still PENDING at close, goes into the random pool and is paired
+   by pairRandoms. Returns the number of units written to out. */
 int buildUnits(Preference *prefs, int n, unsigned int seed, Unit *out)
 {
     Preference *pool;
@@ -274,9 +317,11 @@ int buildUnits(Preference *prefs, int n, unsigned int seed, Unit *out)
     for (i = 0; i < n; i++) {
         Preference *p = &prefs[i];
 
+        /* locked students bring their partner with them */
         if (p->status == STATUS_LOCKED) {
             const Preference *q = findInPrefs(prefs, n, p->roommateRoll);
 
+            /* a broken lock falls back to the random pool instead of losing the student */
             if (!lockedPairOk(p, q)) {
                 pool[poolSize] = *p;
                 pool[poolSize].status = STATUS_RANDOM;
@@ -301,6 +346,7 @@ int buildUnits(Preference *prefs, int n, unsigned int seed, Unit *out)
         }
     }
 
+    /* now the random pool, appended after the locked units */
     k = pairRandoms(pool, poolSize, &out[nUnits]);
     nUnits += k;
 
@@ -311,6 +357,9 @@ int buildUnits(Preference *prefs, int n, unsigned int seed, Unit *out)
     return nUnits;
 }
 
+/* Students who never registered at all are added at the end as units with
+   no preferences, two to a unit in roll number order, with a solo unit for
+   the odd one. They get whatever rooms are left. Returns the new unit count. */
 int appendUnregistered(Unit *units, int nUnits, long *rolls, int nRolls)
 {
     int i;
@@ -338,6 +387,7 @@ int appendUnregistered(Unit *units, int nUnits, long *rolls, int nRolls)
     return nUnits;
 }
 
+/* Finds the unit a student ended up in, by roll number. NULL if none. */
 const Unit *findUnit(const Unit *units, int nUnits, long roll)
 {
     int i;
@@ -348,6 +398,10 @@ const Unit *findUnit(const Unit *units, int nUnits, long roll)
     return NULL;
 }
 
+/* Writes the registration list back out in the same file format, but with
+   every random student now shown as LOCKED to the partner they were given
+   and with the pair's shared choices. Solo students stay RANDOM with no
+   partner. Returns 1 on success, 0 if the file could not be opened. */
 int writePairedFile(const Preference *prefs, int n, const Unit *units, int nUnits,
                     const char *path)
 {
@@ -367,6 +421,7 @@ int writePairedFile(const Preference *prefs, int n, const Unit *units, int nUnit
         long partner = p->roommateRoll;
         char buf[HOSTEL_LEN + 4];
 
+        /* if the student is in a unit, the unit's partner and choices override the original record */
         if (u != NULL) {
             choices = u->choices;
             if (u->solo) {
@@ -393,6 +448,8 @@ int writePairedFile(const Preference *prefs, int n, const Unit *units, int nUnit
     return 1;
 }
 
+/* Prints the unit list as a table, one unit per line with both roll numbers
+   (or "(solo)") and the choices. */
 void printUnits(const Unit *units, int n)
 {
     int i, k;
