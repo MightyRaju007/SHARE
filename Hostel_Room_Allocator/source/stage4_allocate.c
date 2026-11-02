@@ -4,6 +4,7 @@
 #include <time.h>
 #include "commonHeaderFile.h"
 
+//this functions adds a newly allocated room to the list of allocated rooms
 struct allocated *addAllocated(struct allocated **head, struct allocated *tail, int rollNo1, int rollNo2, int hostel, int floor, int checker){
     struct allocated *new = malloc(sizeof(struct allocated));
     new -> rollNos[0] = rollNo1;
@@ -24,6 +25,8 @@ struct allocated *addAllocated(struct allocated **head, struct allocated *tail, 
     return tail;
 }
 
+/*the first phase of allocation takes place in lottery order, if all the choices of a candidate pair is taken, they are added in the 
+phase 2 pool*/
 void allocateRooms(struct paired *lotteryArray[], int n, struct allocated **head, struct allocated **tail, struct paired **unallocated, int *unallocatedCount){
     (*unallocatedCount) = 0;
     int checker;
@@ -47,6 +50,8 @@ void allocateRooms(struct paired *lotteryArray[], int n, struct allocated **head
     return;
 }
 
+/*for the candidates who missed allocation in phase 1, this function tries to find the closest possible hostel room according to their 
+choices, first it looks for floors in the same hostel then neighbouring hostels*/
 void phase2Allocation(struct paired *unallocated[], int unallocatedCount, struct allocated **head, struct allocated **tail){
     for (int i = 0; i < unallocatedCount; i++){
         int checker = 0;
@@ -57,7 +62,7 @@ void phase2Allocation(struct paired *unallocated[], int unallocatedCount, struct
             int floor = tempChoice -> floor;
             int k = 1;
             while (k < 4){
-                if (freeRoomsOnFloor(hostel, floor + k)){
+                if (freeRoomsOnFloor(hostel, floor + k)){ //we check if any other floor in the hostel of preference is free
                     checker = takeRoom(hostel, floor + k);
                     (*tail) = addAllocated(head, *tail, temp -> rollNos[0], temp -> rollNos[1], hostel, floor + k, checker);
                     break;
@@ -76,7 +81,7 @@ void phase2Allocation(struct paired *unallocated[], int unallocatedCount, struct
         if (checker){
                 continue;
         }
-        for (int hostel = 0; hostel < 3; hostel++){
+        for (int hostel = 0; hostel < 3; hostel++){ //we check for hostels other than the one present in the choices
             int preferredHostel = 0;
             for (int j = 0; j < 3; j++){
                 if (temp -> choices[j] -> hostel == hostel){

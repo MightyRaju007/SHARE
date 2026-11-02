@@ -1,0 +1,20 @@
+106125003,2,Room exchange request waiting. Log in to respond.,1
+106125003,3,Roommate swap request waiting. Log in to respond.,1
+106125003,3,exchange done,0
+106125004,2,Room exchange request waiting. Log in to respond.,1
+106125004,3,Roommate swap request waiting. Log in to respond.,1
+106125004,3,exchange done,0
+106125005,3,exchange done,0
+106125006,2,Room exchange request waiting. Log in to respond.,1
+106125006,3,Roommate swap request waiting. Log in to respond.,1
+106125006,3,exchange done,0
+106125008,4,Roommate swap request waiting. Log in to respond.,1
+106125009,4,Roommate swap request waiting. Log in to respond.,1
+106125010,4,Roommate swap request waiting. Log in to respond.,0
+106125019,1,exchange done,0
+106125020,1,Room exchange request waiting. Log in to respond.,1
+106125020,1,exchange done,0
+106125024,1,Room exchange request waiting. Log in to respond.,1
+106125024,1,exchange done,0
+106125025,1,Room exchange request waiting. Log in to respond.,1
+106125025,1,exchange done,0

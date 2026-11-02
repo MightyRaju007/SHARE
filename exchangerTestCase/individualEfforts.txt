@@ -1,0 +1,3 @@
+1) Room inventory functions, duplicate pair merger and lottery algorithm in the hostel room allocator
+2) Database management (saving and loading), helper functions used for accessing and editing stored structures
+3) General algorithm blueprints for both modules and roles division

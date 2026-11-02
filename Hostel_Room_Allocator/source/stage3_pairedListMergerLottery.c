@@ -4,9 +4,9 @@
 #include <time.h>
 #include "commonHeaderFile.h"
 
-struct record *addRecord(struct record **head, struct record *tail, long int rollNo, long int roomateRollNo, struct choice *choices[]){
+struct record *addRecord(struct record **head, struct record *tail, long int rollNo, long int roomateRollNo, struct choice *choices[]) { //adds a record of a roomate pair and their choices
     struct record *new = malloc(sizeof(struct record));
-    if (rollNo < roomateRollNo){
+    if (rollNo < roomateRollNo){ //we need it in sorted order to merge the duplicates later
         new -> smallRollNo = rollNo;
         new -> largeRollNo = roomateRollNo;
     }
@@ -17,7 +17,7 @@ struct record *addRecord(struct record **head, struct record *tail, long int rol
     for (int i = 0; i < 3; i++){
         new -> choices[i] = choices[i];
     }
-    if ((*head) == NULL){
+    if ((*head) == NULL){ //incase it is the first record
         (*head) = new;
         tail = new;
         new -> next = NULL;
@@ -29,7 +29,7 @@ struct record *addRecord(struct record **head, struct record *tail, long int rol
     return tail;
 }
 
-int hostelChoice(char choice[]){
+int hostelChoice(char choice[]){ //converts hostel char code into int code
     if (choice[0] == 'A'){
         if (choice[1] == 'A'){
             return 0;
@@ -46,7 +46,7 @@ int hostelChoice(char choice[]){
     return -1;
 }
 
-char *hostelName(int hostel){
+char *hostelName(int hostel){ //converts hostel int code into char code
     if (hostel == 0){
         return "AA";
     }
@@ -59,22 +59,22 @@ char *hostelName(int hostel){
     return "??";
 }
 
-void splitList(struct record *head, struct record **left, struct record **right){
+void splitList(struct record *head, struct record **left, struct record **right){ //this function gives us a pointer to a list divided into two halves
     struct record *slow = head;
     struct record *fast = head -> next;
-    while (fast != NULL){
+    while (fast != NULL){ //the fast pointer moves 2 nodes while the slow transverses one, so when the fast pointer points to NULL, slow points to the central node
         fast = fast -> next;
         if (fast != NULL){
             slow = slow -> next;
             fast = fast -> next;
         }
     }
-    *left = head;
-    *right = slow -> next;
+    *left = head; //starting node (left have first node)
+    *right = slow -> next; //right half first node
     slow -> next = NULL;
 }
 
-struct record *merge(struct record *left, struct record *right){
+struct record *merge(struct record *left, struct record *right){ //merge function for merge sort sorting of nodes
     struct record *head = NULL;
     struct record *tail = NULL;
     while ((left != NULL) && (right != NULL)){
@@ -108,7 +108,7 @@ struct record *merge(struct record *left, struct record *right){
     return head;
 }
 
-struct record *mergeSort(struct record *head){
+struct record *mergeSort(struct record *head){ //mergesort caller function
     if ((head == NULL) || (head -> next == NULL)){
         return head;
     }
@@ -120,7 +120,7 @@ struct record *mergeSort(struct record *head){
     return merge(left, right);
 }
 
-struct paired *createPairs(struct record *head){
+struct paired *createPairs(struct record *head){ //the sorted list has the rollNo's together, so we only stored the first and skip the next
     struct paired *pairedHead = NULL;
     struct paired *pairedTail = NULL;
     while (head != NULL){
@@ -155,14 +155,19 @@ struct paired *createPairs(struct record *head){
     return pairedHead;
 }
 
-void swap(struct paired **i, struct paired **j){
+void swap(struct paired **i, struct paired **j){ //swapping for the Fishner Yates randomising algorithm the lottery uses
     struct paired *temp = *j;
     *j = *i;
     *i = temp;
     return;
 }
 
-void lottery(){
+/*The lottery function first stores the paired rollNo's from stage 2 into the record structure, then sorts the stored nodes
+It then  adds one node per room in the paired structure 
+For the lottery algorithm, it starts at the end of the array, generates a random index between the start and end and swaps the value
+stored on both indexes, then shortens the array scope by one and repeats, this generates a fair randomly order array
+The function then writes the lottery output to a file for stage 4 to use while room allocation*/
+void lottery(){ 
     srand(time(NULL));
     FILE *fp = fopen("registrations_paired.txt", "r");
     char line[200];
