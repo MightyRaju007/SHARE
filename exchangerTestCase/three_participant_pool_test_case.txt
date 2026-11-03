@@ -1,0 +1,32 @@
+1. CURRENT ROOM ALLOCATIONS
+
+Participant A Roll numbers: 106125022, 106125244 Current hostel: AA
+Current floor: 0 Current room: 25
+
+Participant B Roll numbers: 106125558, 106125557 Current hostel: AA
+Current floor: 1 Current room: 68
+
+Participant C Roll numbers: 106125565, 106125491 Current hostel: AA
+Current floor: 2 Current room: 89
+
+2. TEST PREFERENCES
+
+Participant A (currently AA, Floor 0) 1st preference: AA, Floor 1 2nd
+preference: AA, Floor 2 3rd preference: AB, Floor 0
+
+Participant B (currently AA, Floor 1) 1st preference: AA, Floor 2 2nd
+preference: AA, Floor 0 3rd preference: AB, Floor 1
+
+Participant C (currently AA, Floor 2) 1st preference: AA, Floor 0 2nd
+preference: AB, Floor 1 3rd preference: AA, Floor 1
+
+3. EXPECTED EXCHANGE
+
+Participant A moves from room AA-25 to room AA-68. Participant B moves
+from room AA-68 to room AA-89. Participant C moves from room AA-89 to
+room AA-25.
+
+Expected preference satisfaction: A receives first preference: AA, Floor
+1 B receives first preference: AA, Floor 2 C receives first preference:
+AA, Floor 0
+
